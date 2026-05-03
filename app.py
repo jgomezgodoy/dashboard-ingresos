@@ -17,7 +17,7 @@ st.set_page_config(
 )
 
 
-SPREADSHEET_ID = "1zEq4wklTxCUnouv2qdWQkDp7UiJmjukCdIsLnyQsBcE"
+SPREADSHEET_ID = "1_xlbloSTnckvq7dslFQJyhTuv0Krr-XlKAJmQu4D4RQ"
 SHEET_GID      = 942391946
 CREDS_FILE     = os.path.join(os.path.dirname(__file__), "credentials.json")
 CACHE_FILE     = os.path.join(os.path.dirname(__file__), "cache_datos.pkl")
