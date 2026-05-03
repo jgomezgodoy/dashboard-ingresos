@@ -245,11 +245,14 @@ def _parse_raw(raw):
         lambda r: round(r["coste_gestores"] / r["total"] * 100, 1) if r["coste_gestores"] is not None and r["total"] > 0 else None, axis=1
     )
 
-    # Beneficio neto por mes (fila 90)
+    # Beneficio neto — en columna POST GESTORES (col_idx+1) si existe, sino en col_idx
     netos = []
     for col_idx, year, month, mes_num in valid_cols:
-        val    = neto_row[col_idx].strip() if col_idx < len(neto_row) else ""
-        amount = parse_amount(val)
+        col_neto = col_idx + 1
+        post_lbl = month_row[col_neto].strip().upper() if col_neto < len(month_row) else ""
+        neto_col = col_neto if (not post_lbl or "POST" in post_lbl or "GESTOR" in post_lbl) else col_idx
+        val      = neto_row[neto_col].strip() if neto_col < len(neto_row) else ""
+        amount   = parse_amount(val) if val and val != "#REF!" else 0.0
         netos.append({"año": year, "mes": month, "mes_num": mes_num, "neto": amount})
 
     df_netos = pd.DataFrame(netos)
@@ -349,10 +352,18 @@ def kpi(col, label, value, delta="", delta_cls="kpi-neutral"):
         <div class="kpi-delta {delta_cls}">{delta}</div>
     </div>""", unsafe_allow_html=True)
 
+# Fecha de referencia: el mes anterior al actual es el último mes completo
+_hoy = datetime.now()
+_mes_anterior = 12 if _hoy.month == 1 else _hoy.month - 1
+_año_anterior = _hoy.year - 1 if _hoy.month == 1 else _hoy.year
+
 # Fila 1: un card por año con ingresos + apartamentos activos
 cols_años = st.columns(len(años_ord))
 for i, año in enumerate(años_ord):
     df_año_i = df_año[df_año["año"] == año]
+    # Para el año actual, solo contar meses ya cerrados
+    if año == _año_anterior:
+        df_año_i = df_año_i[df_año_i["mes_num"] <= _mes_anterior]
     ing      = df_año_i["comision"].sum()
     n_apts   = contar_apts(df_año_i[df_año_i["comision"] > 0]["apartamento"].unique())
     if i > 0:
@@ -389,9 +400,6 @@ total_global = df_año["comision"].sum()
 kpi(col_c, "Total acumulado", f"{total_global:,.0f} €".replace(",", "."), f"{len(años_ord)} años seleccionados", "kpi-neutral")
 
 # ── RANKING ÚLTIMO MES ────────────────────────────────────────────────────────
-_hoy = datetime.now()
-_mes_anterior = 12 if _hoy.month == 1 else _hoy.month - 1
-_año_anterior = _hoy.year - 1 if _hoy.month == 1 else _hoy.year
 # Solo datos hasta el mes anterior (nunca meses futuros ni el mes actual)
 _df_hasta_ant = df[
     (df["comision"] > 0) & (
@@ -409,12 +417,15 @@ elif not _df_hasta_ant.empty:
     _last_mes_lbl = _df_hasta_ant[
         (_df_hasta_ant["año"] == _last_año) & (_df_hasta_ant["mes_num"] == _last_mes_num)
     ]["mes"].iloc[0]
+else:
+    _last_año = None
 
+if _last_año is not None:
     df_rank = (
         df[(df["año"] == _last_año) & (df["mes_num"] == _last_mes_num) & (df["comision"] > 0)]
         .groupby("apartamento")["comision"].sum()
         .reset_index()
-        .sort_values("comision", ascending=True)   # ascending para que la barra más alta quede arriba en horizontal
+        .sort_values("comision", ascending=True)
     )
 
     _color = COLORES_AÑO.get(_last_año, "#4ade80")
