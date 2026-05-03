@@ -527,7 +527,11 @@ st.plotly_chart(fig_line, use_container_width=True)
 # ── BENEFICIO ANUAL ───────────────────────────────────────────────────────────
 st.markdown('<div class="section-title">🍾 Ingresos y Beneficio</div>', unsafe_allow_html=True)
 
-df_anual = df_margen[df_margen["año"].isin(años_sel)].groupby("año").agg(
+_dm = df_margen[
+    df_margen["año"].isin(años_sel) &
+    ((df_margen["año"] < _año_anterior) | (df_margen["mes_num"] <= _mes_anterior))
+]
+df_anual = _dm.groupby("año").agg(
     total=("total", "sum"),
     neto=("neto", "sum"),
 ).reset_index()
@@ -615,7 +619,8 @@ st.plotly_chart(fig_anual, use_container_width=True)
 st.markdown('<div class="section-title">💀 Coste de Gestores externos</div>', unsafe_allow_html=True)
 
 df_gest = df_totals[
-    df_totals["pct_gestores"].notna() & df_totals["año"].isin(años_sel)
+    df_totals["pct_gestores"].notna() & df_totals["año"].isin(años_sel) &
+    ((df_totals["año"] < _año_anterior) | (df_totals["mes_num"] <= _mes_anterior))
 ].copy().sort_values(["año", "mes_num"])
 
 if df_gest.empty:
