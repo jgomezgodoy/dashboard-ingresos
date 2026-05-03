@@ -47,6 +47,14 @@ COLORES_AÑO = {
     2026: "#4ade80",   # verde lima
 }
 
+APT_MULTIPLICADOR = {"ALAMO": 3, "ESPOZ Y MINA": 5}
+
+def apt_peso(nombre):
+    return APT_MULTIPLICADOR.get(nombre, 1)
+
+def contar_apts(apt_iterable):
+    return sum(apt_peso(a) for a in apt_iterable)
+
 def rgba(hex_color, alpha=1.0):
     r, g, b = int(hex_color[1:3],16), int(hex_color[3:5],16), int(hex_color[5:7],16)
     return f"rgba({r},{g},{b},{alpha})"
@@ -317,7 +325,7 @@ df_año   = df[df["año"].isin(años_sel)]
 st.markdown('<div class="section-title">Resumen general</div>', unsafe_allow_html=True)
 
 # Calcular KPIs
-n_apts_activos = df_año[df_año["comision"] > 0]["apartamento"].nunique()
+n_apts_activos = contar_apts(df_año[df_año["comision"] > 0]["apartamento"].unique())
 años_ord = sorted(años_sel)
 
 # Mejor mes (por total)
@@ -338,7 +346,7 @@ cols_años = st.columns(len(años_ord))
 for i, año in enumerate(años_ord):
     df_año_i = df_año[df_año["año"] == año]
     ing      = df_año_i["comision"].sum()
-    n_apts   = df_año_i[df_año_i["comision"] > 0]["apartamento"].nunique()
+    n_apts   = contar_apts(df_año_i[df_año_i["comision"] > 0]["apartamento"].unique())
     if i > 0:
         ing_ant = df_año[df_año["año"] == años_ord[i-1]]["comision"].sum()
         pct = ((ing - ing_ant) / ing_ant * 100) if ing_ant > 0 else 0
@@ -390,7 +398,8 @@ if not _df_data.empty:
 
     _color = COLORES_AÑO.get(_last_año, "#4ade80")
     _total_mes = df_rank["comision"].sum()
-    _media_mes = df_rank["comision"].mean()
+    _n_apts_mes = contar_apts(df_rank["apartamento"])
+    _media_mes = _total_mes / _n_apts_mes if _n_apts_mes > 0 else 0
 
     st.markdown(
         f'<div class="section-title">📊 Ingresos por apartamento — {_last_mes_lbl} {_last_año}</div>',
@@ -400,7 +409,7 @@ if not _df_data.empty:
     _c1, _c2, _c3 = st.columns(3)
     _c1.metric("Total mes", f"{_total_mes:,.0f} €".replace(",", "."))
     _c2.metric("Media por apartamento", f"{_media_mes:,.0f} €".replace(",", "."))
-    _c3.metric("Apartamentos activos", f"{len(df_rank)}")
+    _c3.metric("Apartamentos activos", f"{_n_apts_mes}")
 
     fig_rank = go.Figure()
     fig_rank.add_trace(go.Bar(
@@ -729,7 +738,8 @@ st.markdown('<div class="section-title">🍩 Nuevos apartamentos incorporados po
 # Primer año con comisión > 0 para cada apartamento
 df_primero = df[df["comision"] > 0].groupby("apartamento")["año"].min().reset_index()
 df_primero.columns = ["apartamento", "año_entrada"]
-nuevos_año = df_primero[df_primero["año_entrada"].isin(años_sel)].groupby("año_entrada").size().reset_index()
+df_primero["peso"] = df_primero["apartamento"].map(apt_peso)
+nuevos_año = df_primero[df_primero["año_entrada"].isin(años_sel)].groupby("año_entrada")["peso"].sum().reset_index()
 nuevos_año.columns = ["año", "nuevos"]
 
 fig_nuevos = go.Figure()
@@ -780,9 +790,9 @@ for i in range(len(años_ord_ret) - 1):
     retenidos  = set1 & set2
     perdidos   = set1 - set2
     nuevos     = set2 - set1
-    pct        = round(len(retenidos) / len(set1) * 100, 1) if set1 else 0
+    pct        = round(contar_apts(retenidos) / contar_apts(set1) * 100, 1) if set1 else 0
     label      = f"{a1}→{a2}"
-    transiciones.append({"transicion": label, "Retenidos": len(retenidos), "Bajas": len(perdidos), "Nuevos": len(nuevos), "pct": pct})
+    transiciones.append({"transicion": label, "Retenidos": contar_apts(retenidos), "Bajas": contar_apts(perdidos), "Nuevos": contar_apts(nuevos), "pct": pct})
     detalle_ret[label] = {"retenidos": retenidos, "perdidos": perdidos, "nuevos": nuevos}
 
 df_ret = pd.DataFrame(transiciones)
@@ -866,13 +876,13 @@ año_media = st.selectbox("Año a analizar", sorted(años_sel, reverse=True), ke
 
 df_media_año = df_f[df_f["año"] == año_media].groupby("apartamento")["comision"].sum().reset_index()
 df_media_año = df_media_año[df_media_año["comision"] > 0].sort_values("comision", ascending=True)
-media_val = df_media_año["comision"].mean()
+media_val = df_media_año["comision"].sum() / contar_apts(df_media_año["apartamento"]) if not df_media_año.empty else 0
 
-df_media_año["color"] = df_media_año["comision"].apply(
-    lambda v: "#f87171" if v < media_val else "#34d399"
+df_media_año["color"] = df_media_año.apply(
+    lambda r: "#f87171" if r["comision"] / apt_peso(r["apartamento"]) < media_val else "#34d399", axis=1
 )
-df_media_año["border"] = df_media_año["comision"].apply(
-    lambda v: "#dc2626" if v < media_val else "#10b981"
+df_media_año["border"] = df_media_año.apply(
+    lambda r: "#dc2626" if r["comision"] / apt_peso(r["apartamento"]) < media_val else "#10b981", axis=1
 )
 
 fig_media = go.Figure()
@@ -910,8 +920,8 @@ fig_media.update_layout(
     hoverlabel=dict(font_size=15, font_family="Inter, Arial", bgcolor="white", bordercolor="#e0e4ea"),
 )
 
-n_bajo = (df_media_año["comision"] < media_val).sum()
-n_sobre = (df_media_año["comision"] >= media_val).sum()
+n_bajo = int(df_media_año.apply(lambda r: apt_peso(r["apartamento"]) if r["comision"] / apt_peso(r["apartamento"]) < media_val else 0, axis=1).sum())
+n_sobre = int(df_media_año.apply(lambda r: apt_peso(r["apartamento"]) if r["comision"] / apt_peso(r["apartamento"]) >= media_val else 0, axis=1).sum())
 st.caption(f"🔴 {n_bajo} pisos por debajo de la media · 🟢 {n_sobre} pisos por encima")
 st.plotly_chart(fig_media, use_container_width=True)
 
