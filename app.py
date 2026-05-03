@@ -50,7 +50,11 @@ COLORES_AÑO = {
 APT_MULTIPLICADOR = {"ALAMO": 3, "ESPOZ Y MINA": 5}
 
 def apt_peso(nombre):
-    return APT_MULTIPLICADOR.get(nombre, 1)
+    nombre_up = nombre.upper()
+    for key, peso in APT_MULTIPLICADOR.items():
+        if key in nombre_up:
+            return peso
+    return 1
 
 def contar_apts(apt_iterable):
     return sum(apt_peso(a) for a in apt_iterable)
@@ -170,6 +174,10 @@ def _parse_raw(raw):
             cur_year = int(y)
         years_filled.append(cur_year)
 
+    # Extender years_filled si month_row es más largo (celdas fusionadas truncan year_row)
+    if len(years_filled) < len(month_row):
+        years_filled += [cur_year] * (len(month_row) - len(years_filled))
+
     # Columnas válidas (saltamos col A, col B y columnas POST GESTORES)
     valid_cols = []
     for i, (year, month) in enumerate(zip(years_filled, month_row)):
@@ -280,7 +288,7 @@ def load_data():
         worksheet   = next((s for s in spreadsheet.worksheets() if s.id == SHEET_GID), None)
         if worksheet is None:
             raise Exception("Hoja no encontrada")
-        raw    = worksheet.get_all_values()
+        raw    = worksheet.get("A1:ZZ500")
         result = _parse_raw(raw)
         # Guardar caché local con timestamp
         with open(CACHE_FILE, "wb") as f:
@@ -384,16 +392,22 @@ kpi(col_c, "Total acumulado", f"{total_global:,.0f} €".replace(",", "."), f"{l
 _hoy = datetime.now()
 _mes_anterior = 12 if _hoy.month == 1 else _hoy.month - 1
 _año_anterior = _hoy.year - 1 if _hoy.month == 1 else _hoy.year
-_df_mes_ant = df[(df["año"] == _año_anterior) & (df["mes_num"] == _mes_anterior) & (df["comision"] > 0)]
-_df_data = df[df["comision"] > 0]
+# Solo datos hasta el mes anterior (nunca meses futuros ni el mes actual)
+_df_hasta_ant = df[
+    (df["comision"] > 0) & (
+        (df["año"] < _año_anterior) |
+        ((df["año"] == _año_anterior) & (df["mes_num"] <= _mes_anterior))
+    )
+]
+_df_mes_ant = _df_hasta_ant[(df["año"] == _año_anterior) & (df["mes_num"] == _mes_anterior)]
 if not _df_mes_ant.empty:
     _last_año, _last_mes_num = _año_anterior, _mes_anterior
     _last_mes_lbl = _df_mes_ant["mes"].iloc[0]
-elif not _df_data.empty:
-    _last_año     = int(_df_data["año"].max())
-    _last_mes_num = int(_df_data[_df_data["año"] == _last_año]["mes_num"].max())
-    _last_mes_lbl = _df_data[
-        (_df_data["año"] == _last_año) & (_df_data["mes_num"] == _last_mes_num)
+elif not _df_hasta_ant.empty:
+    _last_año     = int(_df_hasta_ant["año"].max())
+    _last_mes_num = int(_df_hasta_ant[_df_hasta_ant["año"] == _last_año]["mes_num"].max())
+    _last_mes_lbl = _df_hasta_ant[
+        (_df_hasta_ant["año"] == _last_año) & (_df_hasta_ant["mes_num"] == _last_mes_num)
     ]["mes"].iloc[0]
 
     df_rank = (
