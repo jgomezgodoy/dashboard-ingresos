@@ -381,8 +381,15 @@ total_global = df_año["comision"].sum()
 kpi(col_c, "Total acumulado", f"{total_global:,.0f} €".replace(",", "."), f"{len(años_ord)} años seleccionados", "kpi-neutral")
 
 # ── RANKING ÚLTIMO MES ────────────────────────────────────────────────────────
+_hoy = datetime.now()
+_mes_anterior = 12 if _hoy.month == 1 else _hoy.month - 1
+_año_anterior = _hoy.year - 1 if _hoy.month == 1 else _hoy.year
+_df_mes_ant = df[(df["año"] == _año_anterior) & (df["mes_num"] == _mes_anterior) & (df["comision"] > 0)]
 _df_data = df[df["comision"] > 0]
-if not _df_data.empty:
+if not _df_mes_ant.empty:
+    _last_año, _last_mes_num = _año_anterior, _mes_anterior
+    _last_mes_lbl = _df_mes_ant["mes"].iloc[0]
+elif not _df_data.empty:
     _last_año     = int(_df_data["año"].max())
     _last_mes_num = int(_df_data[_df_data["año"] == _last_año]["mes_num"].max())
     _last_mes_lbl = _df_data[
