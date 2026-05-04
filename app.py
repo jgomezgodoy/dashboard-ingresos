@@ -425,8 +425,12 @@ if _last_año is not None:
         df[(df["año"] == _last_año) & (df["mes_num"] == _last_mes_num) & (df["comision"] > 0)]
         .groupby("apartamento")["comision"].sum()
         .reset_index()
-        .sort_values("comision", ascending=True)
     )
+    # Ingreso por unidad: divide por el número de apartamentos que representa cada entrada
+    df_rank["comision_unit"] = df_rank.apply(
+        lambda r: r["comision"] / apt_peso(r["apartamento"]), axis=1
+    )
+    df_rank = df_rank.sort_values("comision_unit", ascending=True)
 
     _color = COLORES_AÑO.get(_last_año, "#4ade80")
     _total_mes = df_rank["comision"].sum()
@@ -445,17 +449,17 @@ if _last_año is not None:
 
     fig_rank = go.Figure()
     fig_rank.add_trace(go.Bar(
-        x=df_rank["comision"],
+        x=df_rank["comision_unit"],
         y=df_rank["apartamento"],
         orientation="h",
         marker=dict(
-            color=[rgba(_color, 0.55) if v >= _media_mes else rgba(_color, 0.30) for v in df_rank["comision"]],
+            color=[rgba(_color, 0.55) if v >= _media_mes else rgba(_color, 0.30) for v in df_rank["comision_unit"]],
             line=dict(color=_color, width=1.5),
         ),
-        text=[f"<b>{v:,.0f} €</b>".replace(",", ".") for v in df_rank["comision"]],
+        text=[f"<b>{v:,.0f} €</b>".replace(",", ".") for v in df_rank["comision_unit"]],
         textposition="outside",
         textfont=dict(size=12, family="Inter, Arial", color="#111827"),
-        hovertemplate="<b>%{y}</b><br>%{x:,.0f} €<extra></extra>",
+        hovertemplate="<b>%{y}</b><br>%{x:,.0f} € / apt<extra></extra>",
     ))
     fig_rank.add_vline(
         x=_media_mes,
