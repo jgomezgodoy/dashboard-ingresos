@@ -1,3 +1,4 @@
+import json
 import os
 import pickle
 from datetime import datetime
@@ -21,6 +22,7 @@ SPREADSHEET_ID = "1_xlbloSTnckvq7dslFQJyhTuv0Krr-XlKAJmQu4D4RQ"
 SHEET_GID      = 942391946
 CREDS_FILE     = os.path.join(os.path.dirname(__file__), "credentials.json")
 CACHE_FILE     = os.path.join(os.path.dirname(__file__), "cache_datos.pkl")
+FROZEN_FILE    = os.path.join(os.path.dirname(__file__), "datos_fijos.json")
 
 MESES_ORDER = {
     "ENERO": 1, "FEBRERO": 2, "MARZO": 3, "ABRIL": 4,
@@ -38,13 +40,13 @@ MESES_ORDER = {
 
 PLOTLY_TEMPLATE = "plotly_white"
 
-# Colores fijos por año — más vivos y modernos
+# Colores fijos por año — vivos, con el año de marca (rojo) para el más reciente
 COLORES_AÑO = {
-    2022: "#2dd4bf",   # teal
-    2023: "#fb923c",   # naranja cálido
-    2024: "#818cf8",   # índigo suave
-    2025: "#f472b6",   # rosa
-    2026: "#4ade80",   # verde lima
+    2022: "#FFC145",   # amarillo dorado
+    2023: "#FF7A3D",   # naranja vivo
+    2024: "#2BC4A0",   # teal
+    2025: "#4C6EF5",   # azul vivo
+    2026: "#F59E0B",   # ámbar (año actual; grafito/negro queda como color corporativo)
 }
 
 APT_MULTIPLICADOR = {"ALAMO": 3, "ESPOZ Y MINA": 5}
@@ -77,41 +79,92 @@ LAYOUT_BASE = dict(
 # ── CSS ───────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
+    @import url('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3/dist/tabler-icons.min.css');
+
     /* Fondo general */
-    .stApp { background-color: #f5f7fa; }
-    [data-testid="stSidebar"] { background-color: #ffffff; border-right: 1px solid #e0e4ea; }
+    .stApp { background-color: #FAFAFA; }
+    [data-testid="stSidebar"] { background-color: #ffffff; border-right: 1px solid #f0f0f0; }
 
     /* KPI cards */
     .kpi-card {
         background: #ffffff;
-        border: 1px solid #e0e4ea;
-        border-radius: 16px;
+        border: 1px solid #f0f0f0;
+        border-radius: 20px;
         padding: 22px 24px;
         text-align: center;
-        transition: transform .15s;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        transition: transform .15s, box-shadow .15s;
+        box-shadow: 0 8px 22px rgba(0,0,0,0.06);
     }
-    .kpi-card:hover { transform: translateY(-3px); box-shadow: 0 6px 16px rgba(0,0,0,0.1); }
-    .kpi-label { color: #6b7280; font-size: 16px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px; }
-    .kpi-value { color: #111827; font-size: 42px; font-weight: 700; line-height: 1; }
-    .kpi-delta { font-size: 16px; margin-top: 8px; }
-    .kpi-up   { color: #16a34a; }
-    .kpi-down { color: #dc2626; }
-    .kpi-neutral { color: #6b7280; }
+    .kpi-card:hover { transform: translateY(-4px); box-shadow: 0 16px 32px rgba(0,0,0,0.10); }
+    .kpi-label { color: #8a8a8a; font-size: 15px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px; }
+    .kpi-value { color: #1A1A1A; font-size: 42px; font-weight: 700; line-height: 1; }
+    .kpi-delta { display: inline-block; font-size: 14px; margin-top: 10px; padding: 3px 12px; border-radius: 20px; }
+    .kpi-delta:empty { display: none; }
+    .kpi-up   { color: #ffffff; background: #1A1A1A; }
+    .kpi-down { color: #b00021; background: #FFE1E6; }
+    .kpi-neutral { color: #7a7a7a; background: #F2F2F2; }
 
-    /* Section titles */
+    /* Section titles con badge de icono clay */
     .section-title {
-        color: #111827;
-        font-size: 18px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        color: #1A1A1A;
+        font-size: 20px;
         font-weight: 700;
-        margin: 32px 0 12px 0;
-        padding-bottom: 8px;
-        border-bottom: 1px solid #e0e4ea;
+        margin: 36px 0 16px 0;
     }
+    .section-title .sec-ico {
+        width: 46px; height: 46px; flex: none;
+        border-radius: 15px;
+        display: inline-flex; align-items: center; justify-content: center;
+        font-size: 24px; line-height: 1;
+    }
+    .sec-ico i {
+        display: flex; align-items: center; justify-content: center;
+        width: 100%; height: 100%; line-height: 1;
+    }
+    .sec-ico.red {
+        color: #ffffff;
+        background: linear-gradient(145deg, #FF3B57, #E4002B);
+        box-shadow: 0 7px 14px rgba(228,0,43,0.34), inset 0 1px 1px rgba(255,255,255,0.4);
+    }
+    .sec-ico.tint {
+        color: #E4002B;
+        background: #FFE1E6;
+        box-shadow: 0 6px 12px rgba(228,0,43,0.16);
+    }
+
+    /* Tarjeta suave alrededor de cada gráfica */
+    [data-testid="stPlotlyChart"], .stPlotlyChart {
+        background: #ffffff;
+        border: 1px solid #f2f2f2;
+        border-radius: 20px;
+        padding: 12px 16px;
+        box-shadow: 0 8px 22px rgba(0,0,0,0.06);
+    }
+
+    /* Métricas nativas */
+    [data-testid="stMetric"] {
+        background: #ffffff;
+        border: 1px solid #f2f2f2;
+        border-radius: 16px;
+        padding: 14px 18px;
+        box-shadow: 0 6px 16px rgba(0,0,0,0.05);
+    }
+
+    /* Botones redondeados */
+    .stButton > button {
+        border-radius: 14px;
+        border: 1px solid #eeeeee;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        transition: all .15s;
+    }
+    .stButton > button:hover { border-color: #E4002B; color: #E4002B; transform: translateY(-1px); }
 
     /* Sidebar filters */
     .sidebar-title {
-        color: #2563eb;
+        color: #E4002B;
         font-size: 14px;
         font-weight: 700;
         text-transform: uppercase;
@@ -124,40 +177,58 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+
+# Helper: título de sección con badge de icono clay (alterna rojo sólido / rojo tinte)
+_sec_counter = {"i": 0}
+
+def section_title(icon, text):
+    variant = "red" if _sec_counter["i"] % 2 == 0 else "tint"
+    _sec_counter["i"] += 1
+    st.markdown(
+        f'<div class="section-title"><span class="sec-ico {variant}">'
+        f'<i class="ti {icon}"></i></span><span>{text}</span></div>',
+        unsafe_allow_html=True,
+    )
+
 # ── DATA LOADING ──────────────────────────────────────────────────────────────
 def parse_amount(val: str) -> float:
-    """Convierte string con formato español (1.234,56 €) a float."""
     if not val:
         return 0.0
     try:
-        clean = val.replace("€", "").replace(" ", "").replace(".", "").replace(",", ".")
+        clean = str(val).replace("€", "").replace(" ", "").replace(".", "").replace(",", ".")
         return float(clean)
     except Exception:
         return 0.0
 
+
+def _get_cutoff():
+    """Devuelve (año, mes) hasta el que se congelan datos (mes_actual - 2)."""
+    hoy = datetime.now()
+    mes = hoy.month - 2
+    año = hoy.year
+    if mes <= 0:
+        mes += 12
+        año -= 1
+    return año, mes
+
+
 def _parse_raw(raw):
-    """Parsea los datos crudos del sheet y devuelve df, df_totals, df_margen."""
+    year_row  = raw[4]
+    month_row = raw[5]
 
-    year_row  = raw[4]   # fila 5
-    month_row = raw[5]   # fila 6
-
-    # Detectar dinámicamente filas de apartamentos (col B desde fila 8
-    # hasta encontrar "Total Pisos Neto")
-    apt_start = 7  # índice 0-based de fila 8
+    apt_start = 7
     total_idx = None
     for i in range(apt_start, len(raw)):
         col_b = raw[i][1].strip().lower() if len(raw[i]) > 1 else ""
         if "total pisos" in col_b:
             total_idx = i
             break
-
     if total_idx is None:
-        total_idx = apt_start + 51  # fallback
+        total_idx = apt_start + 51
 
     apt_rows  = raw[apt_start:total_idx]
     total_row = raw[total_idx] if total_idx < len(raw) else []
 
-    # Detectar fila de Ingresos netos dinámicamente (buscar "ingresos netos" en col B)
     neto_row = []
     for i in range(total_idx, len(raw)):
         col_b = raw[i][1].strip().lower() if len(raw[i]) > 1 else ""
@@ -165,7 +236,6 @@ def _parse_raw(raw):
             neto_row = raw[i]
             break
 
-    # Forward-fill años
     years_filled = []
     cur_year = None
     for y in year_row:
@@ -174,29 +244,21 @@ def _parse_raw(raw):
             cur_year = int(y)
         years_filled.append(cur_year)
 
-    # Extender years_filled si month_row es más largo (celdas fusionadas truncan year_row)
     if len(years_filled) < len(month_row):
         years_filled += [cur_year] * (len(month_row) - len(years_filled))
 
-    # Columnas válidas (saltamos col A, col B y columnas POST GESTORES)
     valid_cols = []
     for i, (year, month) in enumerate(zip(years_filled, month_row)):
-        if i < 2:
-            continue
-        if year is None:
+        if i < 2 or year is None:
             continue
         m = month.strip().upper()
-        if not m:
+        if not m or "POST" in m or "GESTOR" in m:
             continue
-        if "POST" in m or "GESTOR" in m:
-            continue
-        # Obtener número de mes para ordenar
         mes_num = next((v for k, v in MESES_ORDER.items() if k in m), None)
         if mes_num is None:
             continue
         valid_cols.append((i, year, month.strip(), mes_num))
 
-    # Apartamentos
     records = []
     for row in apt_rows:
         name = row[1].strip() if len(row) > 1 else ""
@@ -215,29 +277,23 @@ def _parse_raw(raw):
 
     df = pd.DataFrame(records)
 
-    # Totales por mes (fila 59) + columna POST GESTORES adyacente si existe
     totals = []
     for col_idx, year, month, mes_num in valid_cols:
-        val_antes = total_row[col_idx].strip() if col_idx < len(total_row) else ""
+        val_antes    = total_row[col_idx].strip() if col_idx < len(total_row) else ""
         amount_antes = parse_amount(val_antes)
-
-        # La columna POST GESTORES es la siguiente (col_idx + 1) si está vacía en month_row
-        col_post = col_idx + 1
-        post_label = month_row[col_post].strip().upper() if col_post < len(month_row) else ""
+        col_post     = col_idx + 1
+        post_label   = month_row[col_post].strip().upper() if col_post < len(month_row) else ""
         if not post_label or "POST" in post_label or "GESTOR" in post_label:
-            val_post   = total_row[col_post].strip() if col_post < len(total_row) else ""
+            val_post    = total_row[col_post].strip() if col_post < len(total_row) else ""
             amount_post = parse_amount(val_post) if val_post else None
         else:
             amount_post = None
-
         totals.append({
             "año": year, "mes": month, "mes_num": mes_num,
             "total": amount_antes, "total_post": amount_post,
         })
 
     df_totals = pd.DataFrame(totals)
-
-    # % gestores = (total - total_post) / total * 100 (solo cuando hay POST GESTORES)
     df_totals["coste_gestores"] = df_totals.apply(
         lambda r: r["total"] - r["total_post"] if r["total_post"] is not None and r["total"] > 0 else None, axis=1
     )
@@ -245,7 +301,6 @@ def _parse_raw(raw):
         lambda r: round(r["coste_gestores"] / r["total"] * 100, 1) if r["coste_gestores"] is not None and r["total"] > 0 else None, axis=1
     )
 
-    # Beneficio neto — en columna POST GESTORES (col_idx+1) si existe, sino en col_idx
     netos = []
     for col_idx, year, month, mes_num in valid_cols:
         col_neto = col_idx + 1
@@ -255,9 +310,7 @@ def _parse_raw(raw):
         amount   = parse_amount(val) if val and val != "#REF!" else 0.0
         netos.append({"año": year, "mes": month, "mes_num": mes_num, "neto": amount})
 
-    df_netos = pd.DataFrame(netos)
-
-    # % beneficio neto = neto / total_pisos_neto * 100
+    df_netos  = pd.DataFrame(netos)
     df_margen = df_totals.merge(df_netos, on=["año", "mes", "mes_num"])
     df_margen["margen_pct"] = df_margen.apply(
         lambda r: round(r["neto"] / r["total"] * 100, 1) if r["total"] > 0 else None, axis=1
@@ -265,54 +318,148 @@ def _parse_raw(raw):
 
     return df, df_totals, df_margen
 
+
+def _load_frozen():
+    if not os.path.exists(FROZEN_FILE):
+        return None
+    with open(FROZEN_FILE, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _save_frozen(df_all, dt_all, dm_all, cutoff_year, cutoff_month):
+    def is_frozen(row):
+        return (row["año"] < cutoff_year) or (row["año"] == cutoff_year and row["mes_num"] <= cutoff_month)
+
+    def to_records(df):
+        return df[df.apply(is_frozen, axis=1)].where(pd.notnull(df), None).to_dict("records")
+
+    data = {
+        "frozen_until": {"year": cutoff_year, "month": cutoff_month},
+        "last_updated": datetime.now().isoformat(),
+        "records": to_records(df_all),
+        "totals":  to_records(dt_all),
+        "margen":  to_records(dm_all),
+    }
+    with open(FROZEN_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def _frozen_to_dfs(frozen):
+    df  = pd.DataFrame(frozen["records"])
+    dt  = pd.DataFrame(frozen["totals"])
+    dm  = pd.DataFrame(frozen["margen"])
+    return df, dt, dm
+
+
+def _fetch_from_sheet():
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets.readonly",
+        "https://www.googleapis.com/auth/drive.readonly",
+    ]
+    try:
+        has_secrets = "credentials_json" in st.secrets
+    except Exception:
+        has_secrets = False
+
+    if has_secrets:
+        creds = Credentials.from_service_account_info(
+            json.loads(st.secrets["credentials_json"]), scopes=scopes
+        )
+    else:
+        creds = Credentials.from_service_account_file(CREDS_FILE, scopes=scopes)
+
+    client      = gspread.Client(auth=creds)
+    spreadsheet = client.open_by_key(SPREADSHEET_ID)
+    worksheet   = next((s for s in spreadsheet.worksheets() if s.id == SHEET_GID), None)
+    if worksheet is None:
+        raise Exception("Hoja no encontrada")
+    return worksheet.get("A1:ZZ500")
+
+
 @st.cache_data(ttl=300, show_spinner=False)
 def load_data():
-    try:
-        scopes = [
-            "https://www.googleapis.com/auth/spreadsheets.readonly",
-            "https://www.googleapis.com/auth/drive.readonly",
-        ]
-        # En Streamlit Cloud las credenciales vienen de st.secrets
-        # En local se leen del archivo credentials.json
-        try:
-            has_secrets = "credentials_json" in st.secrets
-        except Exception:
-            has_secrets = False
+    cutoff_year, cutoff_month = _get_cutoff()
+    frozen = _load_frozen()
+    frozen_until = (0, 0)
+    if frozen:
+        fu = frozen.get("frozen_until", {})
+        frozen_until = (fu.get("year", 0), fu.get("month", 0))
 
-        if has_secrets:
-            import json
-            creds = Credentials.from_service_account_info(
-                json.loads(st.secrets["credentials_json"]), scopes=scopes
-            )
+    needs_update = frozen_until < (cutoff_year, cutoff_month)
+
+    try:
+        raw = _fetch_from_sheet()
+        df_all, dt_all, dm_all = _parse_raw(raw)
+
+        # Si el cutoff avanzó, actualizar el JSON automáticamente
+        if needs_update:
+            _save_frozen(df_all, dt_all, dm_all, cutoff_year, cutoff_month)
+            frozen = _load_frozen()
+
+        # Datos congelados desde JSON (más seguros), datos recientes desde el sheet
+        if frozen:
+            df_frz, dt_frz, dm_frz = _frozen_to_dfs(frozen)
+
+            def is_live(sub):
+                return ~(
+                    (sub["año"] < cutoff_year) |
+                    ((sub["año"] == cutoff_year) & (sub["mes_num"] <= cutoff_month))
+                )
+
+            df = pd.concat([df_frz, df_all[is_live(df_all)]], ignore_index=True)
+            dt = pd.concat([dt_frz, dt_all[is_live(dt_all)]], ignore_index=True)
+            dm = pd.concat([dm_frz, dm_all[is_live(dm_all)]], ignore_index=True)
         else:
-            creds = Credentials.from_service_account_file(CREDS_FILE, scopes=scopes)
-        client = gspread.Client(auth=creds)
-        spreadsheet = client.open_by_key(SPREADSHEET_ID)
-        worksheet   = next((s for s in spreadsheet.worksheets() if s.id == SHEET_GID), None)
-        if worksheet is None:
-            raise Exception("Hoja no encontrada")
-        raw    = worksheet.get("A1:ZZ500")
-        result = _parse_raw(raw)
-        # Guardar caché local con timestamp
+            df, dt, dm = df_all, dt_all, dm_all
+
         with open(CACHE_FILE, "wb") as f:
-            pickle.dump({"data": result, "ts": datetime.now()}, f)
-        return result
+            pickle.dump({"data": (df, dt, dm), "ts": datetime.now()}, f)
+        return df, dt, dm
+
     except Exception:
-        # Sin internet: cargar desde caché local
-        if os.path.exists(CACHE_FILE):
+        # Sin conexión: usar JSON congelado + pickle para meses recientes
+        if frozen:
+            df_frz, dt_frz, dm_frz = _frozen_to_dfs(frozen)
+            if os.path.exists(CACHE_FILE):
+                with open(CACHE_FILE, "rb") as f:
+                    cache = pickle.load(f)
+                cached_df, cached_dt, cached_dm = cache["data"]
+                ts = cache["ts"].strftime("%d/%m/%Y %H:%M")
+                st.warning(f"Sin conexion - datos congelados + cache del {ts}")
+
+                def is_live(sub):
+                    return ~(
+                        (sub["año"] < cutoff_year) |
+                        ((sub["año"] == cutoff_year) & (sub["mes_num"] <= cutoff_month))
+                    )
+
+                df = pd.concat([df_frz, cached_df[is_live(cached_df)]], ignore_index=True)
+                dt = pd.concat([dt_frz, cached_dt[is_live(cached_dt)]], ignore_index=True)
+                dm = pd.concat([dm_frz, cached_dm[is_live(cached_dm)]], ignore_index=True)
+                return df, dt, dm
+            else:
+                st.warning("Sin conexion - mostrando solo datos congelados (sin meses recientes)")
+                return df_frz, dt_frz, dm_frz
+        elif os.path.exists(CACHE_FILE):
             with open(CACHE_FILE, "rb") as f:
                 cache = pickle.load(f)
             ts = cache["ts"].strftime("%d/%m/%Y %H:%M")
-            st.warning(f"⚠️ Sin conexión — mostrando datos guardados el {ts}")
+            st.warning(f"Sin conexion - datos guardados el {ts}")
             return cache["data"]
         else:
-            st.error("Sin conexión y sin datos guardados. Conéctate a internet al menos una vez.")
+            st.error("Sin conexion y sin datos guardados. Conectate a internet al menos una vez.")
             st.stop()
 
 # ── HEADER ────────────────────────────────────────────────────────────────────
 col_titulo, col_btn = st.columns([5, 1])
 with col_titulo:
-    st.markdown("## 💰 Dashboard Ingresos")
+    st.markdown(
+        '<div style="display:flex; align-items:center; gap:14px; margin:4px 0 2px;">'
+        '<span class="sec-ico red" style="width:54px; height:54px; border-radius:18px; font-size:30px;">'
+        '<i class="ti ti-building-skyscraper"></i></span>'
+        '<span style="font-size:30px; font-weight:800; color:#1A1A1A;">Dashboard Ingresos</span></div>',
+        unsafe_allow_html=True,
+    )
 with col_btn:
     if st.button("🔄 Actualizar", use_container_width=True):
         st.cache_data.clear()
@@ -321,9 +468,16 @@ with col_btn:
 with st.spinner("Cargando datos..."):
     df, df_totals, df_margen = load_data()
 
-# Filtro de años
+# Filtro de años — pastillas: los 3 años más recientes activos, el resto en gris (clicables)
 años_disponibles = sorted(df["año"].unique())
-años_sel = st.multiselect("Filtrar por año", options=años_disponibles, default=años_disponibles, label_visibility="visible")
+años_default = años_disponibles[-3:]  # los 3 años más recientes disponibles
+años_sel = st.pills(
+    "Filtrar por año",
+    options=años_disponibles,
+    default=años_default,
+    selection_mode="multi",
+    label_visibility="visible",
+)
 
 if not años_sel:
     st.warning("Selecciona al menos un año.")
@@ -333,7 +487,7 @@ df_tot_f = df_totals[df_totals["año"].isin(años_sel)]
 df_año   = df[df["año"].isin(años_sel)]
 
 # ── KPI CARDS ─────────────────────────────────────────────────────────────────
-st.markdown('<div class="section-title">Resumen general</div>', unsafe_allow_html=True)
+section_title("ti-gauge", "Resumen general")
 
 # Calcular KPIs
 n_apts_activos = contar_apts(df_año[df_año["comision"] > 0]["apartamento"].unique())
@@ -437,10 +591,7 @@ if _last_año is not None:
     _n_apts_mes = contar_apts(df_rank["apartamento"])
     _media_mes = _total_mes / _n_apts_mes if _n_apts_mes > 0 else 0
 
-    st.markdown(
-        f'<div class="section-title">📊 Ingresos por apartamento — {_last_mes_lbl} {_last_año}</div>',
-        unsafe_allow_html=True,
-    )
+    section_title("ti-report-money", f"Ingresos por apartamento — {_last_mes_lbl} {_last_año}")
 
     _c1, _c2, _c3 = st.columns(3)
     _c1.metric("Total mes", f"{_total_mes:,.0f} €".replace(",", "."))
@@ -463,13 +614,14 @@ if _last_año is not None:
     ))
     fig_rank.add_vline(
         x=_media_mes,
-        line_dash="dash", line_color="#374151", line_width=1.8,
+        line_dash="dash", line_color="#1A1A1A", line_width=1.8,
         annotation_text=f"<b>Media: {_media_mes:,.0f} €</b>".replace(",", "."),
         annotation_position="top right",
-        annotation_font=dict(size=13, color="#374151"),
+        annotation_font=dict(size=13, color="#1A1A1A"),
     )
     fig_rank.update_layout(
         template=PLOTLY_TEMPLATE,
+    barcornerradius=10,
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         height=max(480, len(df_rank) * 30),
@@ -484,7 +636,7 @@ if _last_año is not None:
     st.plotly_chart(fig_rank, use_container_width=True)
 
 # ── EVOLUCIÓN MENSUAL ─────────────────────────────────────────────────────────
-st.markdown('<div class="section-title">🚀 Evolución mensual de ingresos</div>', unsafe_allow_html=True)
+section_title("ti-trending-up", "Evolución mensual de ingresos")
 
 df_tot_sorted = df_tot_f.sort_values(["año", "mes_num"])
 df_tot_sorted["periodo"] = df_tot_sorted["mes"] + " " + df_tot_sorted["año"].astype(str)
@@ -507,10 +659,11 @@ for año in sorted(df_tot_f["año"].unique()):
 
 fig_line.update_layout(
     template=PLOTLY_TEMPLATE,
+    barcornerradius=10,
     paper_bgcolor="rgba(0,0,0,0)",
     plot_bgcolor="rgba(0,0,0,0)",
-    height=400,
-    margin=dict(l=0, r=0, t=60, b=0),
+    height=430,
+    margin=dict(l=0, r=0, t=60, b=50),
     legend=dict(
         orientation="h", yanchor="bottom", y=1.02,
         xanchor="center", x=0.5, font=dict(size=20),
@@ -529,7 +682,7 @@ fig_line.update_layout(
 st.plotly_chart(fig_line, use_container_width=True)
 
 # ── BENEFICIO ANUAL ───────────────────────────────────────────────────────────
-st.markdown('<div class="section-title">🍾 Ingresos y Beneficio</div>', unsafe_allow_html=True)
+section_title("ti-currency-euro", "Ingresos y beneficio")
 
 _dm = df_margen[
     df_margen["año"].isin(años_sel) &
@@ -580,16 +733,17 @@ fig_anual.add_trace(go.Scatter(
     name="% Beneficio",
     mode="markers+text",
     yaxis="y2",
-    marker=dict(size=16, color="#374151", line=dict(width=3, color="white"),
+    marker=dict(size=16, color="#1A1A1A", line=dict(width=3, color="white"),
                 symbol="diamond"),
     text=[f"<b>{v:.1f}%</b>" for v in df_anual["margen_pct"]],
     textposition="top center",
-    textfont=dict(size=15, color="#374151"),
+    textfont=dict(size=15, color="#1A1A1A"),
     hovertemplate="<b>%{x}</b><br>Beneficio: %{y:.1f}%<extra></extra>",
 ))
 
 fig_anual.update_layout(
     template=PLOTLY_TEMPLATE,
+    barcornerradius=10,
     barmode="group",
     paper_bgcolor="rgba(0,0,0,0)",
     plot_bgcolor="rgba(0,0,0,0)",
@@ -620,7 +774,7 @@ fig_anual.update_layout(
 st.plotly_chart(fig_anual, use_container_width=True)
 
 # ── % GESTORES ────────────────────────────────────────────────────────────────
-st.markdown('<div class="section-title">💀 Coste de Gestores externos</div>', unsafe_allow_html=True)
+section_title("ti-users", "Coste de gestores externos")
 
 df_gest = df_totals[
     df_totals["pct_gestores"].notna() & df_totals["año"].isin(años_sel) &
@@ -660,11 +814,11 @@ else:
         y=df_gest["pct_gestores"],
         name="% sobre ingresos",
         mode="lines+markers+text",
-        line=dict(width=3.5, color="#374151", shape="spline", smoothing=0.7),
-        marker=dict(size=10, color="white", line=dict(width=2.5, color="#374151")),
+        line=dict(width=3.5, color="#1A1A1A", shape="spline", smoothing=0.7),
+        marker=dict(size=10, color="white", line=dict(width=2.5, color="#1A1A1A")),
         text=[f"<b>{v:.1f}%</b>" for v in df_gest["pct_gestores"]],
         textposition="top center",
-        textfont=dict(size=12, color="#374151", family="Inter, Arial"),
+        textfont=dict(size=12, color="#1A1A1A", family="Inter, Arial"),
         hovertemplate="<b>%{x}</b><br>% gestores: %{y:.1f}%<extra></extra>",
         yaxis="y2",
     ))
@@ -674,6 +828,7 @@ else:
 
     fig_gest.update_layout(
         template=PLOTLY_TEMPLATE,
+    barcornerradius=10,
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         height=440,
@@ -738,7 +893,7 @@ else:
         )
 
 # ── MESES RÉCORD ──────────────────────────────────────────────────────────────
-st.markdown('<div class="section-title">🏆 Top 10 meses récord</div>', unsafe_allow_html=True)
+section_title("ti-trophy", "Top 10 meses récord")
 
 df_tot_all = df_totals[df_totals["año"].isin(años_sel)].copy()
 df_tot_all["periodo"] = df_tot_all["mes"] + " " + df_tot_all["año"].astype(str)
@@ -751,8 +906,8 @@ fig_top.add_trace(go.Bar(
     y=top10["periodo"],
     orientation="h",
     marker=dict(
-        color=[COLORES_AÑO.get(a, "#aaaaaa") for a in top10["año"]],
-        line=dict(color=[rgba(COLORES_AÑO.get(a,"#aaa"),0.4) for a in top10["año"]], width=1),
+        color=[rgba(COLORES_AÑO.get(a, "#aaaaaa"), 0.7) for a in top10["año"]],
+        line=dict(color=[COLORES_AÑO.get(a, "#aaaaaa") for a in top10["año"]], width=1.5),
     ),
     text=[f"<b>{v:,.0f} €</b>".replace(",", ".") for v in top10["total"]],
     textposition="outside",
@@ -761,6 +916,7 @@ fig_top.add_trace(go.Bar(
 ))
 fig_top.update_layout(
     template=PLOTLY_TEMPLATE,
+    barcornerradius=10,
     paper_bgcolor="rgba(0,0,0,0)",
     plot_bgcolor="rgba(0,0,0,0)",
     height=420,
@@ -774,7 +930,7 @@ fig_top.update_layout(
 st.plotly_chart(fig_top, use_container_width=True)
 
 # ── NUEVOS PISOS POR AÑO ──────────────────────────────────────────────────────
-st.markdown('<div class="section-title">🍩 Nuevos apartamentos incorporados por año</div>', unsafe_allow_html=True)
+section_title("ti-circle-plus", "Nuevos apartamentos incorporados por año")
 
 # Primer año con comisión > 0 para cada apartamento
 df_primero = df[df["comision"] > 0].groupby("apartamento")["año"].min().reset_index()
@@ -798,6 +954,7 @@ fig_nuevos.add_trace(go.Bar(
 ))
 fig_nuevos.update_layout(
     template=PLOTLY_TEMPLATE,
+    barcornerradius=10,
     paper_bgcolor="rgba(0,0,0,0)",
     plot_bgcolor="rgba(0,0,0,0)",
     height=350,
@@ -817,7 +974,7 @@ with st.expander("Ver qué apartamentos se incorporaron cada año"):
         st.markdown(f"**{año}** ({len(apts_nuevos)}): {', '.join(sorted(apts_nuevos))}")
 
 # ── RETENCIÓN ─────────────────────────────────────────────────────────────────
-st.markdown('<div class="section-title">🔒 Retención de apartamentos por año</div>', unsafe_allow_html=True)
+section_title("ti-shield-check", "Retención de apartamentos por año")
 
 años_ord_ret = sorted(años_sel)
 transiciones = []
@@ -869,14 +1026,15 @@ fig_ret.add_trace(go.Scatter(
     x=df_ret["transicion"], y=df_ret["pct"],
     name="% Retención", yaxis="y2",
     mode="markers+text",
-    marker=dict(size=16, color="#374151", line=dict(width=3, color="white"), symbol="circle"),
+    marker=dict(size=16, color="#1A1A1A", line=dict(width=3, color="white"), symbol="circle"),
     text=[f"<b>{v}%</b>" for v in df_ret["pct"]],
-    textposition="top center", textfont=dict(size=14, color="#374151", family="Inter, Arial"),
+    textposition="top center", textfont=dict(size=14, color="#1A1A1A", family="Inter, Arial"),
     hovertemplate="<b>%{x}</b><br>Retención: %{y}%<extra></extra>",
 ))
 
 fig_ret.update_layout(
     template=PLOTLY_TEMPLATE,
+    barcornerradius=10,
     barmode="group",
     paper_bgcolor="rgba(0,0,0,0)",
     plot_bgcolor="rgba(0,0,0,0)",
@@ -911,7 +1069,7 @@ apts_sel = apts_con_comision
 df_f = df_año[df_año["apartamento"].isin(apts_sel)]
 
 # ── PISOS POR DEBAJO DE LA MEDIA ──────────────────────────────────────────────
-st.markdown('<div class="section-title">🌈 Pisos por debajo de la media anual</div>', unsafe_allow_html=True)
+section_title("ti-chart-bar", "Pisos por debajo de la media anual")
 
 año_media = st.selectbox("Año a analizar", sorted(años_sel, reverse=True), key="sel_media")
 
@@ -942,13 +1100,14 @@ fig_media.add_trace(go.Bar(
 ))
 fig_media.add_vline(
     x=media_val,
-    line_dash="dash", line_color="#374151", line_width=2,
+    line_dash="dash", line_color="#1A1A1A", line_width=2,
     annotation_text=f"<b>Media: {media_val:,.0f} €</b>".replace(",", "."),
     annotation_position="top right",
-    annotation_font=dict(size=14, color="#374151"),
+    annotation_font=dict(size=14, color="#1A1A1A"),
 )
 fig_media.update_layout(
     template=PLOTLY_TEMPLATE,
+    barcornerradius=10,
     paper_bgcolor="rgba(0,0,0,0)",
     plot_bgcolor="rgba(0,0,0,0)",
     height=max(500, len(df_media_año) * 28),
@@ -967,7 +1126,7 @@ st.caption(f"🔴 {n_bajo} pisos por debajo de la media · 🟢 {n_sobre} pisos 
 st.plotly_chart(fig_media, use_container_width=True)
 
 # ── EVOLUCIÓN INDIVIDUAL DE PISO ──────────────────────────────────────────────
-st.markdown('<div class="section-title">🔍 Evolución individual de apartamento</div>', unsafe_allow_html=True)
+section_title("ti-search", "Evolución individual de apartamento")
 
 apt_sel = st.selectbox("Selecciona un apartamento", sorted(df_f["apartamento"].unique()), key="sel_apt")
 
@@ -999,6 +1158,7 @@ fig_apt.add_hline(
 
 fig_apt.update_layout(
     template=PLOTLY_TEMPLATE,
+    barcornerradius=10,
     paper_bgcolor="rgba(0,0,0,0)",
     plot_bgcolor="rgba(0,0,0,0)",
     height=400,
