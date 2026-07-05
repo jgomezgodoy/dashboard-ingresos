@@ -162,6 +162,36 @@ st.markdown("""
     }
     .stButton > button:hover { border-color: #E4002B; color: #E4002B; transform: translateY(-1px); }
 
+    /* Pastillas de enlace (navegación externa) */
+    .nav-pill {
+        display: flex; align-items: center; gap: 8px;
+        margin-top: 8px; padding: 8px 12px;
+        background: #ffffff;
+        border: 1px solid #eeeeee;
+        border-radius: 14px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        color: #1A1A1A !important;
+        font-size: 13px; font-weight: 600;
+        text-decoration: none !important;
+        transition: all .15s;
+    }
+    .nav-pill:hover {
+        border-color: #E4002B; color: #E4002B !important;
+        transform: translateY(-1px);
+        box-shadow: 0 8px 18px rgba(228,0,43,0.14);
+    }
+    .nav-pill .np-ico {
+        width: 26px; height: 26px; flex: none;
+        border-radius: 9px;
+        display: flex; align-items: center; justify-content: center;
+        color: #fff; font-size: 15px;
+        background: linear-gradient(145deg, #FF3B57, #E4002B);
+        box-shadow: 0 4px 9px rgba(228,0,43,0.32);
+    }
+    .nav-pill .np-label { line-height: 1.2; }
+    .nav-pill .np-arrow { margin-left: auto; color: #bcbcbc; font-size: 15px; }
+    .nav-pill:hover .np-arrow { color: #E4002B; }
+
     /* Sidebar filters */
     .sidebar-title {
         color: #E4002B;
@@ -451,7 +481,7 @@ def load_data():
             st.stop()
 
 # ── HEADER ────────────────────────────────────────────────────────────────────
-col_titulo, col_btn = st.columns([5, 1])
+col_titulo, col_btn = st.columns([4, 1.5])
 with col_titulo:
     st.markdown(
         '<div style="display:flex; align-items:center; gap:14px; margin:4px 0 2px;">'
@@ -464,6 +494,17 @@ with col_btn:
     if st.button("🔄 Actualizar", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
+    st.markdown(
+        '<a class="nav-pill" href="https://reservaslive.netlify.app/" target="_blank" rel="noopener">'
+        '<span class="np-ico"><i class="ti ti-calendar-check"></i></span>'
+        '<span class="np-label">Reservas Live</span>'
+        '<i class="ti ti-external-link np-arrow"></i></a>'
+        '<a class="nav-pill" href="https://dashboardsingular.netlify.app/" target="_blank" rel="noopener">'
+        '<span class="np-ico"><i class="ti ti-layout-dashboard"></i></span>'
+        '<span class="np-label">Dashboards Apartamentos</span>'
+        '<i class="ti ti-external-link np-arrow"></i></a>',
+        unsafe_allow_html=True,
+    )
 
 with st.spinner("Cargando datos..."):
     df, df_totals, df_margen = load_data()
