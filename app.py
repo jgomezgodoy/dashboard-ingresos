@@ -49,7 +49,7 @@ COLORES_AÑO = {
     2026: "#F59E0B",   # ámbar (año actual; grafito/negro queda como color corporativo)
 }
 
-APT_MULTIPLICADOR = {"ALAMO": 3, "ESPOZ Y MINA": 5}
+APT_MULTIPLICADOR = {"ALAMO": 3, "ESPOZ Y MINA": 5, "TOLEDO": 7}
 
 def apt_peso(nombre):
     nombre_up = nombre.upper()
