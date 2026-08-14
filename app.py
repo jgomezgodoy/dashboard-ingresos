@@ -502,6 +502,10 @@ with col_btn:
         '<a class="nav-pill" href="https://dashboardsingular.netlify.app/" target="_blank" rel="noopener">'
         '<span class="np-ico"><i class="ti ti-layout-dashboard"></i></span>'
         '<span class="np-label">Dashboards Apartamentos</span>'
+        '<i class="ti ti-external-link np-arrow"></i></a>'
+        '<a class="nav-pill" href="https://singularapartamentos.netlify.app/" target="_blank" rel="noopener">'
+        '<span class="np-ico"><i class="ti ti-map-2"></i></span>'
+        '<span class="np-label">Mapa de Apartamentos</span>'
         '<i class="ti ti-external-link np-arrow"></i></a>',
         unsafe_allow_html=True,
     )
