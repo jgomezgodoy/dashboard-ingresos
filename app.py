@@ -506,6 +506,14 @@ with col_btn:
         '<a class="nav-pill" href="https://singularapartamentos.netlify.app/" target="_blank" rel="noopener">'
         '<span class="np-ico"><i class="ti ti-map-2"></i></span>'
         '<span class="np-label">Mapa de Apartamentos</span>'
+        '<i class="ti ti-external-link np-arrow"></i></a>'
+        '<a class="nav-pill" href="https://singularhouse.netlify.app/" target="_blank" rel="noopener">'
+        '<span class="np-ico"><i class="ti ti-building-estate"></i></span>'
+        '<span class="np-label">Singular House</span>'
+        '<i class="ti ti-external-link np-arrow"></i></a>'
+        '<a class="nav-pill" href="https://portalgestores.netlify.app/" target="_blank" rel="noopener">'
+        '<span class="np-ico"><i class="ti ti-users"></i></span>'
+        '<span class="np-label">Portal Gestores</span>'
         '<i class="ti ti-external-link np-arrow"></i></a>',
         unsafe_allow_html=True,
     )
